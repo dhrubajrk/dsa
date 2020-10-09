@@ -1,9 +1,9 @@
 package datastructures;
 
 /**
- * This is a simple implementation of Binary Indexed Tree
+ * This is a simple implementation of 1-D Binary Indexed Tree for Range Sum Query
  */
-public class BinaryIndexedTree {
+public class BinaryIndexedTreeRSQ {
     private static void updateBIT(int[] bit, int i, int value) {
         while (i < bit.length) {
             bit[i] += value;
