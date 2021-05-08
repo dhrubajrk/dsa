@@ -3,49 +3,72 @@ package refactoring;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.sql.SQLOutput;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class TheatreExample {
+    Map<String, Play> plays;
+    Invoice invoice;
+    private final static  String COMEDY = "comedy";
+    private final static  String TRAGEDY = "tragedy";
+
     public String statement(Invoice invoice, Map<String, Play> plays) throws Exception {
+        this.plays = plays;
+        this.invoice = invoice;
         int totalAmount = 0;
-        int volumeCredits = 0;
-        String result = String.format("Statement for %s%n", invoice.customer);
+
+        StringBuilder result = new StringBuilder(String.format("Statement for %s%n", invoice.customer));
 
         for (Performance perf : invoice.performances) {
-            Play play = plays.get(perf.playId);
-            int thisAmount = amountFor(perf, play);
-
-            // add volume credits
-            volumeCredits += Math.max(perf.audience - 30, 0);
-            // add extra credit for every ten comedy attendees
-            if ("comedy".equals(play.type))
-                volumeCredits += Math.floor(perf.audience * 1.0 / 5);
-
             // print line for this order
-            result += "\t" + play.name + ": " + String
-                    .format("$%.2f", thisAmount * 1.0 / 100) + " " + perf.audience + "seats\n";
-            totalAmount += thisAmount;
+            result.append("\t").append(getPlayFor(perf).name).append(": ").append(usd(getAmountFor(perf)))
+                    .append(" ").append(perf.audience).append("seats\n");
+            totalAmount += getAmountFor(perf);
         }
-        result += "Amount owed is " + String.format("$%.2f", totalAmount * 1.0 / 100) + "\n";
-        result += "You earned " + volumeCredits + " credits\n";
-        return result;
+
+        result.append("Amount owed is ").append(usd(totalAmount)).append("\n");
+        result.append("You earned ").append(getTotalVolumeCredits()).append(" credits\n");
+        return result.toString();
     }
 
-    private int amountFor(final Performance perf,
-                          final Play play) throws Exception {
+    private int getTotalVolumeCredits() {
+        int volumeCredits = 0;
+        for (Performance perf : invoice.performances) {
+            volumeCredits += getVolumeCreditsFor(perf);
+        }
+        return volumeCredits;
+    }
+
+    private String usd(double amount) {
+        return String.format("$%.2f", amount / 100);
+    }
+
+    private double getVolumeCreditsFor(Performance perf) {
+        // add volume credits
+        double volumeCredits = 0;
+        volumeCredits += Math.max(perf.audience - 30, 0);
+        // add extra credit for every ten comedy attendees
+        if (COMEDY.equals(getPlayFor(perf).type))
+            volumeCredits += Math.floor(perf.audience * 1.0 / 5);
+        return volumeCredits;
+    }
+
+    private Play getPlayFor(Performance perf) {
+        return plays.get(perf.playId);
+    }
+
+    private int getAmountFor(final Performance perf) throws Exception {
         int result;
-        switch (play.type) {
-            case "tragedy":
+        switch (getPlayFor(perf).type) {
+            case TRAGEDY:
                 result = 40000;
                 if (perf.audience > 30) {
                     result += 1000 * (perf.audience - 30);
                 }
                 break;
-            case "comedy":
+            case COMEDY:
                 result = 30000;
                 if (perf.audience > 20) {
                     result += 10000 + 500 * (perf.audience - 20);
@@ -53,7 +76,7 @@ public class TheatreExample {
                 result += 300 * perf.audience;
                 break;
             default:
-                throw new Exception("Unknown type:" + play.type);
+                throw new Exception("Unknown type:" + getPlayFor(perf).type);
         }
         return result;
     }
@@ -92,9 +115,9 @@ public class TheatreExample {
     @Test
     public void testTheatre() throws Exception {
         Map<String, Play> plays = new HashMap<>();
-        plays.put("hamlet", new Play("Hamlet", "tragedy"));
-        plays.put("as-like", new Play("As You Like It", "comedy"));
-        plays.put("othello", new Play("Othello", "tragedy"));
+        plays.put("hamlet", new Play("Hamlet", TRAGEDY));
+        plays.put("as-like", new Play("As You Like It", COMEDY));
+        plays.put("othello", new Play("Othello", TRAGEDY));
 
         List<Performance> performances = Arrays.asList(
                 new Performance("hamlet", 55),
