@@ -22,6 +22,7 @@ public class ExecutorServiceExample {
                 e.printStackTrace();
             }
         });
+        executorService.shutdown();
         System.out.println("::::::DONE:::::");
     }
 
