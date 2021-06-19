@@ -3,65 +3,99 @@ package refactoring;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class TheatreExample {
-    Map<String, Play> plays;
-    Invoice invoice;
-    private final static  String COMEDY = "comedy";
-    private final static  String TRAGEDY = "tragedy";
+    private static final String COMEDY = "comedy";
+    private static final String TRAGEDY = "tragedy";
 
-    public String statement(Invoice invoice, Map<String, Play> plays) throws Exception {
-        this.plays = plays;
-        this.invoice = invoice;
-        int totalAmount = 0;
+    public String statement(Invoice invoice, Map<String, Play> plays) {
+        StatementData statementData = createStatementData(invoice, plays);
+        return renderPlainText(statementData);
+    }
 
-        StringBuilder result = new StringBuilder(String.format("Statement for %s%n", invoice.customer));
+    public String getHtmlStatement(Invoice invoice, Map<String, Play> plays) {
+        StatementData statementData = createStatementData(invoice, plays);
+        return renderPlainText(statementData);
+    }
 
-        for (Performance perf : invoice.performances) {
+    private String renderPlainText(StatementData statementData) {
+        StringBuilder result = new StringBuilder(String.format("Statement for %s%n", statementData.customer));
+        for (EnrichedPerformance perf : statementData.performances) {
             // print line for this order
-            result.append("\t").append(getPlayFor(perf).name).append(": ").append(usd(getAmountFor(perf)))
+            result.append("\t").append(perf.play.name).append(": ").append(usd(perf.amount))
                     .append(" ").append(perf.audience).append("seats\n");
-            totalAmount += getAmountFor(perf);
         }
 
-        result.append("Amount owed is ").append(usd(totalAmount)).append("\n");
-        result.append("You earned ").append(getTotalVolumeCredits()).append(" credits\n");
+        result.append("Amount owed is ").append(usd(getTotalAmount(statementData))).append("\n");
+        result.append("You earned ").append(getTotalVolumeCredits(statementData)).append(" credits\n");
         return result.toString();
     }
 
-    private int getTotalVolumeCredits() {
-        int volumeCredits = 0;
+    private StatementData createStatementData(Invoice invoice, Map<String, Play> plays) {
+        StatementData statementData = new StatementData();
+        statementData.customer = invoice.customer;
+        statementData.plays = plays;
+        statementData.performances = new ArrayList<>();
         for (Performance perf : invoice.performances) {
-            volumeCredits += getVolumeCreditsFor(perf);
+            statementData.performances.add(enrichPerformance(statementData.plays, perf));
         }
-        return volumeCredits;
+        statementData.totalAmount = getTotalAmount(statementData);
+        statementData.totalVolumeCredits = getTotalVolumeCredits(statementData);
+        return statementData;
+    }
+
+    private EnrichedPerformance enrichPerformance(Map<String, Play> plays, Performance perf) {
+        EnrichedPerformance enrichedPerformance = new EnrichedPerformance();
+        enrichedPerformance.play = getPlayFor(plays, perf);
+        enrichedPerformance.audience = perf.audience;
+        enrichedPerformance.volumeCredit = getVolumeCreditsFor(enrichedPerformance);
+        enrichedPerformance.amount = getAmountFor(enrichedPerformance);
+        return enrichedPerformance;
+    }
+
+
+
+    private int getTotalAmount(StatementData statementData) {
+        int result = 0;
+        for (EnrichedPerformance perf : statementData.performances) {
+            result += perf.amount;
+        }
+        return result;
+    }
+
+    private int getTotalVolumeCredits(StatementData statementData) {
+        int result = 0;
+        for (EnrichedPerformance perf : statementData.performances) {
+            result += perf.volumeCredit;
+        }
+        return result;
     }
 
     private String usd(double amount) {
         return String.format("$%.2f", amount / 100);
     }
 
-    private double getVolumeCreditsFor(Performance perf) {
+    private int getVolumeCreditsFor(EnrichedPerformance perf) {
         // add volume credits
-        double volumeCredits = 0;
-        volumeCredits += Math.max(perf.audience - 30, 0);
+        int volumeCredits = Math.max(perf.audience - 30, 0);
         // add extra credit for every ten comedy attendees
-        if (COMEDY.equals(getPlayFor(perf).type))
-            volumeCredits += Math.floor(perf.audience * 1.0 / 5);
+        if (COMEDY.equals(perf.play.type))
+            volumeCredits += (perf.audience / 5);
         return volumeCredits;
     }
 
-    private Play getPlayFor(Performance perf) {
+    private Play getPlayFor(Map<String, Play> plays, Performance perf) {
         return plays.get(perf.playId);
     }
 
-    private int getAmountFor(final Performance perf) throws Exception {
+    private int getAmountFor(EnrichedPerformance perf) {
         int result;
-        switch (getPlayFor(perf).type) {
+        switch (perf.play.type) {
             case TRAGEDY:
                 result = 40000;
                 if (perf.audience > 30) {
@@ -76,17 +110,32 @@ public class TheatreExample {
                 result += 300 * perf.audience;
                 break;
             default:
-                throw new Exception("Unknown type:" + getPlayFor(perf).type);
+                throw new IllegalArgumentException("Unknown type:" + perf.play.type);
         }
         return result;
     }
 
+    private class StatementData {
+        Map<String, Play> plays;
+        String customer;
+        List<EnrichedPerformance> performances;
+        int totalVolumeCredits;
+        int totalAmount;
+    }
+
+    private class EnrichedPerformance {
+
+        int audience;
+        int volumeCredit;
+        int amount;
+        Play play;
+    }
 
     private class Play {
         String name;
         String type;
 
-        public Play(String name, String type) {
+        Play(String name, String type) {
             this.name = name;
             this.type = type;
         }
@@ -96,7 +145,7 @@ public class TheatreExample {
         String playId;
         int audience;
 
-        public Performance(String playId, int audience) {
+        Performance(String playId, int audience) {
             this.playId = playId;
             this.audience = audience;
         }
