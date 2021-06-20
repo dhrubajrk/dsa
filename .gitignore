@@ -1,1 +1,10 @@
 /out/production/dhrubajrk-code/datastructures/
+/.idea/
+target
+.idea
+.classpath
+.project
+.settings
+.DS_Store
+*.iml
+.idea/*
